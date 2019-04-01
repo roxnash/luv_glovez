@@ -1,0 +1,61 @@
+//beginnings and ends of each tweet, randomly chosen
+
+var starts = [" ", " ", " ","@justinbieber ", "OMG ", "omgggg ", "EH OH ELLL ", "xD ", "rofl ", "I LIKE TACOS ", "is ", "is ", "is ", "is ", "is ", "is ", "is ", "ahahahahaa ", "ahahaa ", "hahah ", "omggg ", "O M GGG ", "WOOOOW ", "whoaaaa ", "heyyy! ", "sup? ", "SMF ", "ROFL ", "ZOmg "];
+var ends = [" ", " ", " ", " xD xD", " so random xD", " heheHOHhehhe", " :p", " (:", " WOOOT", " woot", " WOOT WOOT", " lol", " lmaooooo", " rotfl", " blaaaaaaah", " peshawww", " :)", " <3 <3", " :D", " :D <3", "...", "!!!!!1!!!", "!!!!!", "??!?!?!?!?!?!", " :D :d :D", " :p P:;p", " .....???", " <3", " <3 <3", " xD", " :p", " so funny xD", " lol so random", " EPICCC"]; 
+
+//require library
+var Twit = require('twit');
+
+//to learn from source text
+var MarkovChain = require('markovchain')
+  , fs = require('fs')
+  , quotes = new MarkovChain(fs.readFileSync('./sample.txt', 'utf8'))
+
+
+var T = new Twit({
+	consumer_key: '/////'
+	,consumer_secret: '/////'
+	, access_token: '/////'
+	, access_token_secret:'/////'
+});
+
+//tweet every hour
+tweeting();
+setInterval(tweeting, 1000*60*60);
+
+//function to randomize, use markov chain, send tweet
+function tweeting(){
+var useUpperCase = function(wordList) {
+  var tmpList = Object.keys(wordList).filter(function(word) {
+    return word[0] >= 'a' && word[0] <= 'z'
+  })
+  return tmpList[~~(Math.random()*tmpList.length)]
+}
+
+
+var generated = quotes.start(useUpperCase).end(Math.floor(Math.random()*15)).process();
+
+
+
+
+var tweet = {
+	status: starts[Math.floor(Math.random()*starts.length)] 
+	+ generated 
+	+ ends[Math.floor(Math.random()*ends.length)]
+}
+
+console.log(tweet);
+
+T.post('statuses/update', tweet, tweeted);
+
+function tweeted(err, data, response){
+	if (err){
+		console.log("there was an error");
+	} else {
+		console.log("it worked");
+	}
+}
+}
+
+
+
