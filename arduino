@@ -1,0 +1,263 @@
+//include libraries
+#include <Adafruit_NeoPixel.h>
+#ifdef __AVR__
+  #include <avr/power.h>
+#endif
+
+#include <ESP8266WiFi.h>
+
+//define variables
+#define PIN 14
+#define NUM_LEDS 8
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, PIN, NEO_GRB + NEO_KHZ800);
+const int reedPin = 2;
+const int reedPinTwo = 13;
+
+//connect to hotspot
+const char* ssid     = "Rox rox";
+const char* password = "roxanneisthebest";
+
+//connect to ifttt
+const char* host = "maker.ifttt.com";
+
+
+
+void setup() {
+  //set neopixel to show nothing
+  strip.begin();
+  strip.setBrightness(50);
+  strip.show();  
+  
+  Serial.begin(115200);
+  delay(100);
+
+  //define pin mode of reed switches
+  pinMode(reedPin, INPUT_PULLUP);
+  pinMode(reedPinTwo, INPUT_PULLUP);
+
+  //connect to wifi network
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+
+  WiFi.begin(ssid, password);
+
+  //loading bar while connecting
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+int value = 0;
+
+void loop() {
+
+   
+  delay(500);
+  ++value;
+
+
+  Serial.print("connecting to ");
+  Serial.println(host);
+
+
+
+  // Use WiFiClient class to create TCP connections
+  WiFiClient client;
+  const int httpPort = 80;
+  if (!client.connect(host, httpPort)) {
+    Serial.println("connection failed");
+    return;
+  }
+
+    
+
+  // We now create a URI for the request
+  String url = "/trigger/heart_made/with/key/lAmUFz_uJFvWM7HnIHJ_IbbzYLiu4MUb3F9ZIEyL4Om";
+  Serial.print("Requesting URL: ");
+  Serial.println(url);
+
+//read states of both reed switches
+int proximityTwo = digitalRead(reedPinTwo);
+int proximity = digitalRead(reedPin); // Read the state of the switch
+//if both switches are closed
+  if (proximityTwo == LOW && proximity == LOW) // If the pin reads low, the switch is closed.
+  {
+  
+   sending(); //neopixel colour
+    Serial.println("Both closed");
+//     This will send the request to the server
+      client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                   "Host: " + host + "\r\n" +
+                   "Connection: close\r\n\r\n");
+    delay(50);
+    //if only thumb is closed
+  } else if (proximityTwo == LOW) {
+     halfLight(0xff, 0, 0xff, 3, 50, false); //neopixel colour
+    Serial.print("thumb is closed"); 
+    //if only finger is closed
+  } else if (proximity == LOW){
+        halfLight(0xff, 0, 0xff, 3, 50, false); //neopixel colour
+    Serial.print("finger is closed");
+  } else {
+    //if neither are closed
+    waiting(0x00, 0xff, 0x00); //neopixel colour
+    Serial.print("open");
+  }
+
+  // Read all the lines of the reply from server and print them to Serial
+  while (client.available()) {
+    String line = client.readStringUntil('\r');
+    Serial.print(line);
+  }
+
+  Serial.println();
+  Serial.println("closing connection");
+}
+
+
+//neopixel while neither are closed
+void waiting(byte red, byte green, byte blue){
+  float r, g, b;
+      
+  for(int k = 0; k < 256; k=k+1) { 
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+//    setAll(r,g,b);
+    setPixel(7, r, g, b);
+    for (int i=0; i < 7; i++){
+      setPixel(i, 0, 0, 0);
+    }
+    showStrip();
+    delay(10);
+  }
+   
+  for(int k = 255; k >= 0; k=k-2) {
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+//    setAll(r,g,b);
+    setPixel(7, r, g, b);
+     for (int i=0; i < 7; i++){
+      setPixel(i, 0, 0, 0);
+    }
+    showStrip();
+    delay(10);
+  }
+}
+
+//neopixel while both are closed
+void sending(){
+   RunningLights(0xff,0xff,0, 50);  
+   RunningLights(0xff,0xff,0, 50);   
+   
+  delay(100);
+  
+  colorWipe(0x00,0xff,0x00, 40);
+  delay(500);
+  colorWipe(0x00,0x00,0x00, 10);
+
+}
+
+
+void colorWipe(byte red, byte green, byte blue, int SpeedDelay) {
+  for(uint16_t i=0; i<NUM_LEDS; i++) {
+      setPixel(i, red, green, blue);
+      showStrip();
+      delay(SpeedDelay);
+  }
+    delay(3000);
+}
+
+//neopixel when only one is closed
+void halfLight(byte red, byte green, byte blue, int Count, int SpeedDelay, boolean OnlyOne) {
+  setAll(0,0,0);
+  
+  for (int i=0; i<Count; i++) {
+     setPixel(random(NUM_LEDS),red,green,blue);
+     showStrip();
+     delay(SpeedDelay);
+     if(OnlyOne) { 
+       setAll(0,0,0); 
+     }
+   }
+  
+  delay(SpeedDelay);
+}
+
+
+void RunningLights(byte red, byte green, byte blue, int WaveDelay) {
+  int Position=0;
+  
+  for(int j=0; j<8*2; j++)
+  {
+      Position++; // = 0; //Position + Rate;
+      for(int i=0; i<8; i++) {
+        // sine wave, 3 offset waves make a rainbow!
+        //float level = sin(i+Position) * 127 + 128;
+        //setPixel(i,level,0,0);
+        //float level = sin(i+Position) * 127 + 128;
+        strip.setPixelColor(i,((sin(i+Position) * 127 + 128)/255)*red,
+                   ((sin(i+Position) * 127 + 128)/255)*green,
+                   ((sin(i+Position) * 127 + 128)/255)*blue);
+      }
+      
+      strip.show();
+      delay(WaveDelay);
+  }
+}
+
+
+
+// Fill the dots one after the other with a color
+void colorWipe(uint32_t c, uint8_t wait) {
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, c);
+    strip.show();
+    delay(wait);
+  }
+}
+
+
+
+
+void showStrip() {
+ #ifdef ADAFRUIT_NEOPIXEL_H 
+   // NeoPixel
+   strip.show();
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H
+   // FastLED
+   FastLED.show();
+ #endif
+}
+
+void setPixel(int Pixel, byte red, byte green, byte blue) {
+ #ifdef ADAFRUIT_NEOPIXEL_H 
+   // NeoPixel
+   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H 
+   // FastLED
+   leds[Pixel].r = red;
+   leds[Pixel].g = green;
+   leds[Pixel].b = blue;
+ #endif
+}
+
+void setAll(byte red, byte green, byte blue) {
+  for(int i = 0; i < NUM_LEDS; i++ ) {
+    setPixel(i, red, green, blue); 
+  }
+  showStrip();
+}
